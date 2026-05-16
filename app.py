@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import joblib
 import numpy as np
+import sys
+# Import the specific module where the attribute is expected
+import sklearn.compose._column_transformer as ct
 
 # 1. Título de la aplicación
 st.set_page_config(page_title='Sistema de Alerta Temprana de Churn - Eco-Ride 🛴', layout='centered')
@@ -10,9 +13,29 @@ st.title('Sistema de Alerta Temprana de Churn - Eco-Ride 🛴')
 # Cargar el modelo y el pipeline de preprocesamiento
 # Asegúrate de que 'modelo_churn.pkl' y 'pipeline_preproc.pkl' estén en la raíz de tu entorno de Colab
 try:
+    # --- Start of temporary fix for sklearn _RemainderColsList error ---
+    # This workaround addresses compatibility issues when loading ColumnTransformer
+    # pipelines saved with different scikit-learn versions, specifically related
+    # to the internal _RemainderColsList attribute.
+    original_remainder_cols_list_patched = False
+    if not hasattr(ct, '_RemainderColsList'):
+        class _RemainderColsList:
+            pass
+        ct._RemainderColsList = _RemainderColsList
+        original_remainder_cols_list_patched = True
+        st.warning("Aplicando parche temporal para compatibilidad de sklearn '_RemainderColsList'.")
+    # --- End of temporary fix ---
+
     model = joblib.load('modelo_churn.pkl')
     preprocessor = joblib.load('pipeline_preproc.pkl')
     st.success("Modelo y pipeline cargados exitosamente.")
+
+    # --- Restore original state after loading ---
+    if original_remainder_cols_list_patched:
+        del ct._RemainderColsList # Remove the dummy class
+        # st.info("Parche '_RemainderColsList' removido.") # Optional: for debugging
+    # --- End of restore ---
+
 except Exception as e:
     st.error(f"Error al cargar el modelo o el pipeline: {e}. Asegúrate de que 'modelo_churn.pkl' y 'pipeline_preproc.pkl' estén en el directorio de trabajo actual (normalmente /content/ en Colab).")
     st.stop() # Detener la ejecución si no se pueden cargar los archivos
